@@ -38,4 +38,23 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       .catch((error) => sendResponse({ ok: false, error: String(error) }));
     return true;
   }
+
+  if (message.type === "recordStats") {
+    const body = JSON.stringify({
+      platform: message.platform || "unknown",
+      decision: message.decision || "cloud",
+      original_input_tokens: Number(message.originalInputTokens || 0),
+      optimized_input_tokens: Number(message.optimizedInputTokens || 0),
+      output_token_budget: Number(message.outputTokenBudget || 0),
+      applied: Boolean(message.applied),
+    });
+    api("/api/stats", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+    })
+      .then((data) => sendResponse({ ok: true, data }))
+      .catch((error) => sendResponse({ ok: false, error: String(error) }));
+    return true;
+  }
 });
