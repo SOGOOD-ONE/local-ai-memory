@@ -14,8 +14,11 @@
     const messages = extractVisibleConversation();
     const query = [...messages].reverse().find((item) => item.role === 'user')?.content || '';
     if (!query) return;
-    const optimizedMessages = messages.slice(-8);
-    adapter.debounceObserve({ platform: 'chatgpt', messages: optimizedMessages });
+
+    // Keep the full visible conversation here. The shared adapter performs the
+    // intentional last-8-message context reduction and can therefore measure
+    // the real before/after token difference.
+    adapter.debounceObserve({ platform: 'chatgpt', messages });
   }
 
   const observer = new MutationObserver(sendSnapshot);
