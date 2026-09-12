@@ -1,10 +1,13 @@
 {
   "manifest_version": 3,
   "name": "Local AI Memory",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Local memory and context compression middleware for web LLMs.",
-  "permissions": ["storage"],
-  "host_permissions": ["http://127.0.0.1:8765/*"],
+  "permissions": ["storage", "activeTab", "tabs"],
+  "host_permissions": [
+    "http://127.0.0.1:8765/*",
+    "http://localhost:8765/*"
+  ],
   "background": {
     "service_worker": "background.js"
   },
@@ -19,6 +22,22 @@
         "https://chat.openai.com/*"
       ],
       "js": ["content/chatgpt.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.doubao.com/*",
+        "https://doubao.com/*"
+      ],
+      "js": ["content/doubao.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://*.trea.ai/*",
+        "https://trea.ai/*"
+      ],
+      "js": ["content/trea.js"],
       "run_at": "document_idle"
     }
   ]
