@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Local AI Memory",
+  "version": "0.1.0",
+  "description": "Local memory and context compression middleware for web LLMs.",
+  "permissions": ["storage"],
+  "host_permissions": ["http://127.0.0.1:8765/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Local AI Memory",
+    "default_popup": "popup/index.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+      ],
+      "js": ["content/chatgpt.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
