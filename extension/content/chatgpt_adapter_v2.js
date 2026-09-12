@@ -10,14 +10,23 @@
     }));
   }
 
+  function getComposerText() {
+    const node = document.querySelector('textarea')
+      || document.querySelector('[contenteditable="true"]')
+      || document.querySelector('[role="textbox"]');
+    if (!node) return '';
+    return String('value' in node ? node.value : node.innerText || '').trim();
+  }
+
   function sendSnapshot() {
     const messages = extractVisibleConversation();
+    const composer = getComposerText();
+    const lastUser = [...messages].reverse().find((item) => item.role === 'user')?.content || '';
+    if (composer && composer !== lastUser) {
+      messages.push({ role: 'user', content: composer });
+    }
     const query = [...messages].reverse().find((item) => item.role === 'user')?.content || '';
     if (!query) return;
-
-    // Keep the full visible conversation here. The shared adapter performs the
-    // intentional last-8-message context reduction and can therefore measure
-    // the real before/after token difference.
     adapter.debounceObserve({ platform: 'chatgpt', messages });
   }
 
