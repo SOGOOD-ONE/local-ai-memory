@@ -1,3 +1,0 @@
-Flask>=3.1,<4
-flask-cors>=6,<7
-pytest>=8,<9

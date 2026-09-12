@@ -1,0 +1,6 @@
+{
+  "name": "Local AI Cost & Memory Optimizer",
+  "description": "Local AI memory and cost optimization server with token estimation, semantic caching, context compaction, and cost analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

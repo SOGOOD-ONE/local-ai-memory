@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Local AI Memory & Cost Optimizer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            primary: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+            },
+            dark: {
+              800: '#1e293b',
+              900: '#0f172a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+    .card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05);
+    }
+    .stat-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans">
+
+  <!-- Navigation Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-9 h-9 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-bold text-lg shadow-sm">
+          ⚡
+        </div>
+        <div>
+          <div class="font-bold text-slate-900 text-base leading-tight">Local AI Memory & Cost Optimizer</div>
+          <div class="text-xs text-slate-500">本地 AI 记忆引擎与成本优化中枢</div>
+        </div>
+      </div>
+      <div class="flex items-center space-x-3">
+        <span id="serviceStatus" class="stat-badge bg-emerald-50 text-emerald-700 border border-emerald-200">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>
+          服务在线 (v0.7.0)
+        </span>
+        <button id="refreshStatsBtn" class="px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
+          刷新数据
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+    <!-- Top Key Metrics Bento Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div class="card p-5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">节省输入 Token</span>
+          <span class="p-2 bg-emerald-50 text-emerald-600 rounded-lg text-sm">📉</span>
+        </div>
+        <div id="statSavedInput" class="text-2xl font-bold text-slate-900 mt-2">0</div>
+        <div class="text-xs text-slate-500 mt-1">
+          输入节省比例: <span id="statSavingRatio" class="font-semibold text-emerald-600">0.00%</span>
+        </div>
+      </div>
+
+      <div class="card p-5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">累计请求次数</span>
+          <span class="p-2 bg-blue-50 text-blue-600 rounded-lg text-sm">🔄</span>
+        </div>
+        <div id="statTotalRequests" class="text-2xl font-bold text-slate-900 mt-2">0</div>
+        <div class="text-xs text-slate-500 mt-1">
+          实际优化应用: <span id="statAppliedRequests" class="font-semibold text-slate-700">0</span> 次
+        </div>
+      </div>
+
+      <div class="card p-5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">输出 Token 预算</span>
+          <span class="p-2 bg-indigo-50 text-indigo-600 rounded-lg text-sm">🎯</span>
+        </div>
+        <div id="statOutputBudget" class="text-2xl font-bold text-slate-900 mt-2">0</div>
+        <div class="text-xs text-slate-500 mt-1">防滥用动态上限保护</div>
+      </div>
+
+      <div class="card p-5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">路由决策分布</span>
+          <span class="p-2 bg-purple-50 text-purple-600 rounded-lg text-sm">📊</span>
+        </div>
+        <div id="statDecisions" class="flex items-center gap-1.5 mt-2 text-sm font-semibold text-slate-800">
+          <span class="px-2 py-0.5 bg-slate-100 rounded text-xs">暂无数据</span>
+        </div>
+        <div class="text-xs text-slate-500 mt-1">云端 / 缓存 / 本地决策</div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="flex border-b border-slate-200 space-x-8">
+      <button id="tab-btn-optimizer" onclick="switchTab('optimizer')" class="pb-3 text-sm font-semibold border-b-2 border-emerald-600 text-emerald-600 transition-colors">
+        🚀 优化决策与实时模拟器
+      </button>
+      <button id="tab-btn-memories" onclick="switchTab('memories')" class="pb-3 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-colors">
+        🧠 本地记忆库 (Memories)
+      </button>
+      <button id="tab-btn-cache" onclick="switchTab('cache')" class="pb-3 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-colors">
+        ⚡ 语义缓存 (Semantic Cache)
+      </button>
+      <button id="tab-btn-sessions" onclick="switchTab('sessions')" class="pb-3 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-colors">
+        💬 会话历史 (Sessions)
+      </button>
+    </div>
+
+    <!-- Tab 1: Optimizer & Sandbox -->
+    <div id="tab-optimizer" class="space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Input Form -->
+        <div class="lg:col-span-7 card p-6 space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 class="text-base font-bold text-slate-900">请求优化测试沙箱</h2>
+            <span class="text-xs text-slate-400">实时计算 Token 与路由决策</span>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">用户 Prompt / Query</label>
+            <textarea id="simQuery" rows="3" class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none" placeholder="输入用户提问，例如：什么是 local-ai-memory？或者：请写一个复杂微服务架构设计..."></textarea>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">目标平台</label>
+              <select id="simPlatform" class="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg bg-white">
+                <option value="ChatGPT">ChatGPT</option>
+                <option value="豆包">豆包</option>
+                <option value="Trea">Trea</option>
+                <option value="Claude">Claude</option>
+                <option value="DeepSeek">DeepSeek</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">输入价格 ($/百万 Token)</label>
+              <input type="number" id="simInputPrice" value="2.5" step="0.1" class="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">输出价格 ($/百万 Token)</label>
+              <input type="number" id="simOutputPrice" value="10.0" step="0.1" class="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg">
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between pt-2">
+            <div class="flex items-center space-x-4">
+              <label class="inline-flex items-center text-xs text-slate-600 cursor-pointer">
+                <input type="checkbox" id="simRecordStats" class="rounded text-emerald-600 focus:ring-emerald-500 mr-1.5" checked>
+                记录到统计看板
+              </label>
+            </div>
+            <button id="runSimBtn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs rounded-lg transition-colors flex items-center shadow-sm">
+              <span>运行优化分析</span>
+              <span class="ml-1.5">→</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Simulation Result Card -->
+        <div class="lg:col-span-5 card p-6 space-y-4">
+          <h2 class="text-base font-bold text-slate-900">分析与决策结果</h2>
+          
+          <div id="simResultContainer" class="space-y-4">
+            <div class="p-4 bg-slate-50 border border-slate-100 rounded-xl space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-xs text-slate-500">智能路由判定</span>
+                <span id="resRouteBadge" class="stat-badge bg-blue-100 text-blue-800">等待输入</span>
+              </div>
+              <div id="resRouteReason" class="text-xs font-medium text-slate-700">请输入 Prompt 后点击“运行优化分析”</div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 text-center">
+              <div class="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                <div class="text-xs text-slate-500">预估输入 Token</div>
+                <div id="resInputTokens" class="text-lg font-bold text-slate-800 mt-0.5">0</div>
+              </div>
+              <div class="p-3 bg-slate-50 rounded-lg border border-slate-100">
+                <div class="text-xs text-slate-500">建议输出上限</div>
+                <div id="resOutputBudget" class="text-lg font-bold text-slate-800 mt-0.5">0</div>
+              </div>
+            </div>
+
+            <div class="p-4 bg-emerald-50 border border-emerald-100 rounded-xl space-y-2">
+              <div class="text-xs font-semibold text-emerald-800">成本节省效益分析</div>
+              <div class="flex items-center justify-between text-xs text-emerald-700">
+                <span>优化前预估成本:</span>
+                <span id="resCostBefore" class="font-mono font-medium">$0.00000000</span>
+              </div>
+              <div class="flex items-center justify-between text-xs text-emerald-700">
+                <span>优化后实际成本:</span>
+                <span id="resCostAfter" class="font-mono font-medium">$0.00000000</span>
+              </div>
+              <div class="pt-1 border-t border-emerald-200/60 flex items-center justify-between text-xs font-bold text-emerald-900">
+                <span>本次净节省:</span>
+                <span id="resCostSaved" class="font-mono">$0.00000000</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 2: Memories Management -->
+    <div id="tab-memories" class="hidden space-y-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-bold text-slate-900">本地记忆条目</h2>
+          <p class="text-xs text-slate-500">支持短期 (short)、中期 (medium) 和长期 (long) 分级记忆管理与语义检索</p>
+        </div>
+        <button onclick="openAddMemoryModal()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs rounded-lg transition-colors">
+          + 添加新记忆
+        </button>
+      </div>
+
+      <div class="card overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase">
+              <tr>
+                <th class="px-4 py-3">ID</th>
+                <th class="px-4 py-3">类型</th>
+                <th class="px-4 py-3">重要度</th>
+                <th class="px-4 py-3">记忆内容</th>
+                <th class="px-4 py-3">关联会话</th>
+                <th class="px-4 py-3 text-right">操作</th>
+              </tr>
+            </thead>
+            <tbody id="memoriesTableBody" class="divide-y divide-slate-100 text-slate-700">
+              <tr>
+                <td colspan="6" class="px-4 py-8 text-center text-slate-400">正在加载记忆库...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 3: Semantic Cache -->
+    <div id="tab-cache" class="hidden space-y-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-bold text-slate-900">语义缓存条目</h2>
+          <p class="text-xs text-slate-500">基于高维分词与余弦相似度匹配历史回答，彻底免除重复调用成本</p>
+        </div>
+        <button onclick="openAddCacheModal()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs rounded-lg transition-colors">
+          + 录入缓存条目
+        </button>
+      </div>
+
+      <div class="card overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase">
+              <tr>
+                <th class="px-4 py-3">ID</th>
+                <th class="px-4 py-3">平台/模型</th>
+                <th class="px-4 py-3">查询内容 (Query)</th>
+                <th class="px-4 py-3">缓存回答</th>
+                <th class="px-4 py-3">命中次数</th>
+                <th class="px-4 py-3">创建时间</th>
+              </tr>
+            </thead>
+            <tbody id="cacheTableBody" class="divide-y divide-slate-100 text-slate-700">
+              <tr>
+                <td colspan="6" class="px-4 py-8 text-center text-slate-400">正在加载缓存数据...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 4: Sessions Explorer -->
+    <div id="tab-sessions" class="hidden space-y-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-bold text-slate-900">活跃会话</h2>
+          <p class="text-xs text-slate-500">会话上下文管理与短期记忆生命周期触发器</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="card p-4 space-y-3">
+          <div class="text-xs font-bold text-slate-700 uppercase">会话列表</div>
+          <div id="sessionsList" class="space-y-2 max-h-96 overflow-y-auto pr-1">
+            <div class="text-xs text-slate-400">加载会话中...</div>
+          </div>
+        </div>
+
+        <div class="md:col-span-2 card p-4 space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 id="currentSessionTitle" class="text-sm font-bold text-slate-800">会话详情</h3>
+            <button id="triggerRollupBtn" class="px-2.5 py-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded transition-colors">
+              触发记忆摘要 (Rollup)
+            </button>
+          </div>
+          <div id="sessionMessagesContainer" class="space-y-2.5 max-h-96 overflow-y-auto p-3 bg-slate-50 rounded-lg border border-slate-100">
+            <div class="text-xs text-slate-400 text-center py-6">请选择左侧会话查看详细对话记录</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Add Memory Modal -->
+  <div id="addMemoryModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4 mx-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-bold text-slate-900">添加本地记忆</h3>
+        <button onclick="closeAddMemoryModal()" class="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">记忆类型</label>
+        <select id="modalMemoryType" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg">
+          <option value="long">长期记忆 (Long)</option>
+          <option value="medium">中期摘要 (Medium)</option>
+          <option value="short">短期对话 (Short)</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">重要度 (0.0 - 1.0)</label>
+        <input type="number" id="modalMemoryImportance" min="0" max="1" step="0.05" value="0.8" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">记忆内容</label>
+        <textarea id="modalMemoryContent" rows="3" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg" placeholder="例如：用户偏好使用 TypeScript 和 Tailwind CSS"></textarea>
+      </div>
+      <div class="flex justify-end space-x-2 pt-2">
+        <button onclick="closeAddMemoryModal()" class="px-3 py-1.5 text-xs text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg">取消</button>
+        <button onclick="submitNewMemory()" class="px-4 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium">保存记忆</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Cache Modal -->
+  <div id="addCacheModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4 mx-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-bold text-slate-900">录入语义缓存条目</h3>
+        <button onclick="closeAddCacheModal()" class="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">平台标识</label>
+        <input type="text" id="modalCachePlatform" value="ChatGPT" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">用户 Query</label>
+        <input type="text" id="modalCacheQuery" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg" placeholder="例如：解释什么是 React Hooks">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">缓存响应 (Response)</label>
+        <textarea id="modalCacheResponse" rows="4" class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg" placeholder="输入预设或历史回答..."></textarea>
+      </div>
+      <div class="flex justify-end space-x-2 pt-2">
+        <button onclick="closeAddCacheModal()" class="px-3 py-1.5 text-xs text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg">取消</button>
+        <button onclick="submitNewCache()" class="px-4 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium">保存缓存</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let activeSessionId = 'sess_demo_1';
+
+    function formatNumber(value) {
+      return Number(value || 0).toLocaleString('zh-CN');
+    }
+
+    // Switch Tabs
+    function switchTab(tab) {
+      ['optimizer', 'memories', 'cache', 'sessions'].forEach(t => {
+        const tabEl = document.getElementById(`tab-${t}`);
+        const btnEl = document.getElementById(`tab-btn-${t}`);
+        if (t === tab) {
+          tabEl.classList.remove('hidden');
+          btnEl.classList.add('border-emerald-600', 'text-emerald-600');
+          btnEl.classList.remove('border-transparent', 'text-slate-500');
+        } else {
+          tabEl.classList.add('hidden');
+          btnEl.classList.remove('border-emerald-600', 'text-emerald-600');
+          btnEl.classList.add('border-transparent', 'text-slate-500');
+        }
+      });
+      if (tab === 'memories') loadMemories();
+      if (tab === 'cache') loadCache();
+      if (tab === 'sessions') loadSessions();
+    }
+
+    // Load Overall Stats
+    async function loadStats() {
+      try {
+        const res = await fetch('/api/stats');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        document.getElementById('statSavedInput').textContent = formatNumber(data.saved_input_tokens);
+        document.getElementById('statTotalRequests').textContent = formatNumber(data.requests);
+        document.getElementById('statAppliedRequests').textContent = formatNumber(data.applied_requests);
+        document.getElementById('statSavingRatio').textContent = `${Number(data.input_saving_ratio || 0).toFixed(2)}%`;
+        document.getElementById('statOutputBudget').textContent = formatNumber(data.output_token_budget);
+
+        const decisionsContainer = document.getElementById('statDecisions');
+        if (data.decisions && Object.keys(data.decisions).length > 0) {
+          decisionsContainer.innerHTML = Object.entries(data.decisions).map(([k, v]) => `
+            <span class="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-xs">
+              ${k}: <strong class="text-slate-900">${v}</strong>
+            </span>
+          `).join('');
+        }
+      } catch (err) {
+        console.error('Failed to load stats:', err);
+      }
+    }
+
+    // Run Simulation
+    async function runSimulation() {
+      const query = document.getElementById('simQuery').value.trim();
+      if (!query) {
+        alert('请输入提问内容 (Query)');
+        return;
+      }
+
+      const platform = document.getElementById('simPlatform').value;
+      const inputPrice = parseFloat(document.getElementById('simInputPrice').value) || 0;
+      const outputPrice = parseFloat(document.getElementById('simOutputPrice').value) || 0;
+      const record = document.getElementById('simRecordStats').checked;
+
+      // 1. Check cache first
+      let cacheHit = false;
+      try {
+        const cacheRes = await fetch('/api/cache/lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query, platform, threshold: 0.85 })
+        });
+        const cacheData = await cacheRes.json();
+        cacheHit = cacheData.hit;
+      } catch (e) {
+        console.warn('Cache lookup failed', e);
+      }
+
+      // 2. Preview optimization
+      try {
+        const optRes = await fetch('/api/optimize/preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query,
+            cache_hit: cacheHit,
+            input_per_million: inputPrice,
+            output_per_million: outputPrice
+          })
+        });
+        const optData = await optRes.json();
+        
+        // Render Result
+        const route = optData.route || {};
+        const cost = optData.cost || {};
+
+        const badge = document.getElementById('resRouteBadge');
+        badge.textContent = route.action.toUpperCase();
+        if (route.action === 'cache') {
+          badge.className = 'stat-badge bg-emerald-100 text-emerald-800';
+        } else if (route.action === 'local') {
+          badge.className = 'stat-badge bg-purple-100 text-purple-800';
+        } else {
+          badge.className = 'stat-badge bg-blue-100 text-blue-800';
+        }
+
+        document.getElementById('resRouteReason').textContent = `${route.reason} (类型: ${route.query_type})`;
+        document.getElementById('resInputTokens').textContent = formatNumber(cost.before?.input_tokens || 0);
+        document.getElementById('resOutputBudget').textContent = formatNumber(cost.max_output_tokens || 0);
+        
+        document.getElementById('resCostBefore').textContent = `$${Number(cost.before?.total_cost || 0).toFixed(8)}`;
+        document.getElementById('resCostAfter').textContent = `$${Number(cost.after?.total_cost || 0).toFixed(8)}`;
+        document.getElementById('resCostSaved').textContent = `$${Number(cost.saved_cost || 0).toFixed(8)}`;
+
+        // 3. Record if requested
+        if (record) {
+          await fetch('/api/stats/record', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              platform,
+              decision: route.action,
+              original_input_tokens: cost.before?.input_tokens || 0,
+              optimized_input_tokens: cost.after?.input_tokens || 0,
+              output_token_budget: cost.planned_output_tokens || 0,
+              applied: true
+            })
+          });
+          loadStats();
+        }
+      } catch (err) {
+        alert('分析失败：' + err.message);
+      }
+    }
+
+    // Load Memories Table
+    async function loadMemories() {
+      try {
+        const res = await fetch('/api/memories?limit=50');
+        const data = await res.json();
+        const tbody = document.getElementById('memoriesTableBody');
+        if (!data.memories || data.memories.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-slate-400">暂无记忆条目</td></tr>';
+          return;
+        }
+        tbody.innerHTML = data.memories.map(m => `
+          <tr class="hover:bg-slate-50 transition-colors">
+            <td class="px-4 py-3 font-mono text-slate-500">#${m.id}</td>
+            <td class="px-4 py-3">
+              <span class="px-2 py-0.5 rounded text-[11px] font-semibold ${
+                m.memory_type === 'long' ? 'bg-indigo-50 text-indigo-700' :
+                m.memory_type === 'medium' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-700'
+              }">${m.memory_type}</span>
+            </td>
+            <td class="px-4 py-3 font-semibold text-slate-800">${Number(m.importance).toFixed(2)}</td>
+            <td class="px-4 py-3 max-w-md truncate text-slate-900">${m.content}</td>
+            <td class="px-4 py-3 text-slate-500">${m.session_id || '全局'}</td>
+            <td class="px-4 py-3 text-right">
+              <button onclick="deleteMemory(${m.id})" class="text-rose-600 hover:text-rose-800 font-medium">删除</button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        console.error('Failed to load memories:', err);
+      }
+    }
+
+    async function deleteMemory(id) {
+      if (!confirm('确定删除该记忆吗？')) return;
+      await fetch(`/api/memories/${id}`, { method: 'DELETE' });
+      loadMemories();
+    }
+
+    function openAddMemoryModal() { document.getElementById('addMemoryModal').classList.remove('hidden'); }
+    function closeAddMemoryModal() { document.getElementById('addMemoryModal').classList.add('hidden'); }
+
+    async function submitNewMemory() {
+      const memory_type = document.getElementById('modalMemoryType').value;
+      const importance = parseFloat(document.getElementById('modalMemoryImportance').value) || 0.5;
+      const content = document.getElementById('modalMemoryContent').value.trim();
+      if (!content) return alert('请输入记忆内容');
+
+      await fetch('/api/memory', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memory_type, importance, content })
+      });
+      closeAddMemoryModal();
+      document.getElementById('modalMemoryContent').value = '';
+      loadMemories();
+    }
+
+    // Load Semantic Cache
+    async function loadCache() {
+      try {
+        const res = await fetch('/api/cache');
+        const data = await res.json();
+        const tbody = document.getElementById('cacheTableBody');
+        if (!data.entries || data.entries.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-slate-400">暂无缓存条目</td></tr>';
+          return;
+        }
+        tbody.innerHTML = data.entries.map(c => `
+          <tr class="hover:bg-slate-50 transition-colors">
+            <td class="px-4 py-3 font-mono text-slate-500">#${c.id}</td>
+            <td class="px-4 py-3 font-medium text-slate-700">${c.platform} ${c.model ? `(${c.model})` : ''}</td>
+            <td class="px-4 py-3 font-semibold text-slate-900 max-w-xs truncate">${c.query}</td>
+            <td class="px-4 py-3 text-slate-600 max-w-md truncate">${c.response}</td>
+            <td class="px-4 py-3"><span class="font-bold text-emerald-600">${c.hit_count}</span></td>
+            <td class="px-4 py-3 text-slate-400">${new Date(c.created_at).toLocaleTimeString()}</td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        console.error('Failed to load cache:', err);
+      }
+    }
+
+    function openAddCacheModal() { document.getElementById('addCacheModal').classList.remove('hidden'); }
+    function closeAddCacheModal() { document.getElementById('addCacheModal').classList.add('hidden'); }
+
+    async function submitNewCache() {
+      const platform = document.getElementById('modalCachePlatform').value.trim();
+      const query = document.getElementById('modalCacheQuery').value.trim();
+      const response = document.getElementById('modalCacheResponse').value.trim();
+      if (!query || !response) return alert('请输入完整内容');
+
+      await fetch('/api/cache/store', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform, query, response })
+      });
+      closeAddCacheModal();
+      document.getElementById('modalCacheQuery').value = '';
+      document.getElementById('modalCacheResponse').value = '';
+      loadCache();
+    }
+
+    // Load Sessions
+    async function loadSessions() {
+      try {
+        const res = await fetch('/api/sessions');
+        const data = await res.json();
+        const listContainer = document.getElementById('sessionsList');
+        if (!data.sessions || data.sessions.length === 0) {
+          listContainer.innerHTML = '<div class="text-xs text-slate-400">暂无活跃会话</div>';
+          return;
+        }
+        listContainer.innerHTML = data.sessions.map(s => `
+          <div onclick="selectSession('${s.session_id}')" class="p-2.5 rounded-lg border border-slate-200 cursor-pointer hover:border-emerald-500 transition-colors ${s.session_id === activeSessionId ? 'bg-emerald-50/50 border-emerald-500' : 'bg-white'}">
+            <div class="font-semibold text-xs text-slate-800">${s.title || s.session_id}</div>
+            <div class="text-[10px] text-slate-500 mt-0.5 flex justify-between">
+              <span>${s.platform}</span>
+              <span>${new Date(s.updated_at).toLocaleTimeString()}</span>
+            </div>
+          </div>
+        `).join('');
+        if (activeSessionId) selectSession(activeSessionId);
+      } catch (err) {
+        console.error('Failed to load sessions:', err);
+      }
+    }
+
+    async function selectSession(sessionId) {
+      activeSessionId = sessionId;
+      document.getElementById('currentSessionTitle').textContent = `会话: ${sessionId}`;
+      try {
+        const res = await fetch(`/api/session/${sessionId}/messages`);
+        const data = await res.json();
+        const container = document.getElementById('sessionMessagesContainer');
+        if (!data.messages || data.messages.length === 0) {
+          container.innerHTML = '<div class="text-xs text-slate-400 text-center py-6">该会话暂无消息</div>';
+          return;
+        }
+        container.innerHTML = data.messages.map(m => `
+          <div class="p-2.5 rounded-lg text-xs ${
+            m.role === 'user' ? 'bg-emerald-100/60 ml-6 text-slate-800' :
+            m.role === 'assistant' ? 'bg-white mr-6 text-slate-800 border border-slate-200' : 'bg-slate-200 text-slate-600'
+          }">
+            <div class="font-semibold text-[10px] uppercase text-slate-500 mb-1">${m.role} (${m.token_count} tokens)</div>
+            <div>${m.content}</div>
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error('Failed to load messages:', err);
+      }
+    }
+
+    // Trigger Rollup
+    async function triggerRollup() {
+      if (!activeSessionId) return;
+      const res = await fetch(`/api/session/${activeSessionId}/rollup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      const data = await res.json();
+      alert(`记忆 Rollup 成功！生成 ${data.created} 条新记忆摘要。`);
+      loadMemories();
+    }
+
+    // Init
+    document.getElementById('runSimBtn').addEventListener('click', runSimulation);
+    document.getElementById('refreshStatsBtn').addEventListener('click', loadStats);
+    document.getElementById('triggerRollupBtn').addEventListener('click', triggerRollup);
+
+    loadStats();
+  </script>
+</body>
+</html>
