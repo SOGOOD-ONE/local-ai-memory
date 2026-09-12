@@ -3,14 +3,34 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Local AI Memory</title>
+  <title>Local AI Cost Optimizer</title>
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
   <main>
-    <h1>Local AI Memory</h1>
-    <p id="status">检查本地服务中…</p>
-    <button id="check">检查连接</button>
+    <header>
+      <div class="brand">Local AI Cost Optimizer</div>
+      <div id="serverBadge" class="badge offline">离线</div>
+    </header>
+
+    <section class="platform">
+      <span>当前平台</span>
+      <strong id="platform">检测中…</strong>
+    </section>
+
+    <section class="stats">
+      <div><span>输入节省</span><strong id="savedInput">0</strong></div>
+      <div><span>输出节省</span><strong id="savedOutput">0</strong></div>
+      <div><span>估算费用</span><strong id="savedCost">¥0.00</strong></div>
+    </section>
+
+    <section class="decision">
+      <div class="label">优化决策</div>
+      <div id="decision">等待请求</div>
+      <p id="reason">插件连接本地成本优化服务后，这里会显示 Local / Cache / Cloud。</p>
+    </section>
+
+    <button id="check">检查本地服务</button>
   </main>
   <script src="popup.js"></script>
 </body>
