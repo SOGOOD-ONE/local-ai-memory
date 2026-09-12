@@ -52,10 +52,23 @@ def init_db() -> None:
                 FOREIGN KEY(session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
             );
 
+            CREATE TABLE IF NOT EXISTS optimization_stats (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                platform TEXT NOT NULL DEFAULT 'unknown',
+                decision TEXT NOT NULL,
+                original_input_tokens INTEGER NOT NULL DEFAULT 0,
+                optimized_input_tokens INTEGER NOT NULL DEFAULT 0,
+                output_token_budget INTEGER NOT NULL DEFAULT 0,
+                applied INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
             CREATE INDEX IF NOT EXISTS idx_messages_session_created
                 ON messages(session_id, created_at);
             CREATE INDEX IF NOT EXISTS idx_memories_type_importance
                 ON memories(memory_type, importance DESC);
+            CREATE INDEX IF NOT EXISTS idx_optimization_stats_platform_created
+                ON optimization_stats(platform, created_at);
             """
         )
 
@@ -150,3 +163,81 @@ def list_memories(memory_type: str | None = None, limit: int = 20) -> list[dict[
                 (limit,),
             ).fetchall()
     return [dict(row) for row in rows]
+
+
+def record_optimization_stat(
+    *,
+    platform: str,
+    decision: str,
+    original_input_tokens: int,
+    optimized_input_tokens: int,
+    output_token_budget: int,
+    applied: bool,
+) -> int:
+    with get_connection() as conn:
+        cur = conn.execute(
+            """
+            INSERT INTO optimization_stats(
+                platform, decision, original_input_tokens,
+                optimized_input_tokens, output_token_budget, applied
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                platform or "unknown",
+                decision or "cloud",
+                max(0, int(original_input_tokens)),
+                max(0, int(optimized_input_tokens)),
+                max(0, int(output_token_budget)),
+                1 if applied else 0,
+            ),
+        )
+        return int(cur.lastrowid)
+
+
+def optimization_stats(platform: str | None = None) -> dict[str, Any]:
+    where = "WHERE platform = ?" if platform else ""
+    params = (platform,) if platform else ()
+    with get_connection() as conn:
+        row = conn.execute(
+            f"""
+            SELECT
+                COUNT(*) AS requests,
+                COALESCE(SUM(original_input_tokens), 0) AS original_input_tokens,
+                COALESCE(SUM(optimized_input_tokens), 0) AS optimized_input_tokens,
+                COALESCE(SUM(
+                    CASE
+                        WHEN decision IN ('local', 'cache') THEN original_input_tokens
+                        ELSE MAX(0, original_input_tokens - optimized_input_tokens)
+                    END
+                ), 0) AS saved_input_tokens,
+                COALESCE(SUM(output_token_budget), 0) AS output_token_budget,
+                COALESCE(SUM(applied), 0) AS applied_requests
+            FROM optimization_stats
+            {where}
+            """,
+            params,
+        ).fetchone()
+        decisions = conn.execute(
+            f"""
+            SELECT decision, COUNT(*) AS count
+            FROM optimization_stats
+            {where}
+            GROUP BY decision
+            ORDER BY count DESC
+            """,
+            params,
+        ).fetchall()
+
+    original = int(row["original_input_tokens"])
+    saved = int(row["saved_input_tokens"])
+    ratio = round((saved / original) * 100, 2) if original else 0.0
+    return {
+        "requests": int(row["requests"]),
+        "original_input_tokens": original,
+        "optimized_input_tokens": int(row["optimized_input_tokens"]),
+        "saved_input_tokens": saved,
+        "input_saving_ratio": ratio,
+        "output_token_budget": int(row["output_token_budget"]),
+        "applied_requests": int(row["applied_requests"]),
+        "decisions": {item["decision"]: int(item["count"]) for item in decisions},
+    }
