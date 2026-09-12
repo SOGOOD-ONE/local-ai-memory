@@ -220,9 +220,19 @@ def optimize_preview():
     if not query:
         return jsonify({"error": "query is required"}), 400
 
+    # A browser adapter may know the current query even when the page's
+    # conversation DOM is temporarily unavailable. Never report a meaningful
+    # request as 0 tokens just because context extraction raced with a DOM update.
+    original_context = str(data.get("original_context", "")).strip()
+    optimized_context = str(data.get("optimized_context", "")).strip()
+    if not original_context:
+        original_context = query
+    if not optimized_context:
+        optimized_context = query
+
     try:
-        original_input = int(data.get("original_input_tokens", estimate_tokens(str(data.get("original_context", "")))))
-        optimized_input = int(data.get("optimized_input_tokens", estimate_tokens(str(data.get("optimized_context", "")))))
+        original_input = int(data.get("original_input_tokens", estimate_tokens(original_context)))
+        optimized_input = int(data.get("optimized_input_tokens", estimate_tokens(optimized_context)))
         input_price = float(data.get("input_per_million", 0.0))
         output_price = float(data.get("output_per_million", 0.0))
         expected_output = data.get("expected_output_tokens")
