@@ -67,6 +67,78 @@
         "content/request_context_bridge.js"
       ],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://chat.deepseek.com/*",
+        "https://*.deepseek.com/*"
+      ],
+      "js": [
+        "content/adapter.js",
+        "content/send_bridge.js",
+        "content/send_guard.js",
+        "content/deepseek_adapter_v2.js",
+        "content/deepseek_sender_v1.js",
+        "content/request_context.js",
+        "content/request_context_bridge.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://tongyi.aliyun.com/*",
+        "https://*.tongyi.aliyun.com/*",
+        "https://qianwen.aliyun.com/*",
+        "https://*.qianwenai.com/*"
+      ],
+      "js": [
+        "content/adapter.js",
+        "content/send_bridge.js",
+        "content/send_guard.js",
+        "content/qwen_adapter_v2.js",
+        "content/qwen_sender_v1.js",
+        "content/request_context.js",
+        "content/request_context_bridge.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://chatglm.cn/*",
+        "https://*.chatglm.cn/*",
+        "https://www.chatglm.com/*",
+        "https://*.chatglm.com/*"
+      ],
+      "js": [
+        "content/adapter.js",
+        "content/send_bridge.js",
+        "content/send_guard.js",
+        "content/chatglm_adapter_v2.js",
+        "content/chatglm_sender_v1.js",
+        "content/request_context.js",
+        "content/request_context_bridge.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://kimi.com/*",
+        "https://*.kimi.com/*",
+        "https://kimi.moonshot.cn/*",
+        "https://*.kimi.moonshot.cn/*",
+        "https://kimi.ai/*",
+        "https://*.kimi.ai/*"
+      ],
+      "js": [
+        "content/adapter.js",
+        "content/send_bridge.js",
+        "content/send_guard.js",
+        "content/kimi_adapter_v2.js",
+        "content/kimi_sender_v1.js",
+        "content/request_context.js",
+        "content/request_context_bridge.js"
+      ],
+      "run_at": "document_idle"
     }
   ]
 }
