@@ -4,6 +4,7 @@ from flask import Flask, jsonify, request
 
 from context_engine import ContextPolicy, build_context as build_context_engine
 from database import add_memory, add_message, init_db, list_memories, list_messages, upsert_session
+from memory_lifecycle import MemoryPolicy, rollup_session
 from token_engine import estimate_tokens
 
 app = Flask(__name__)
@@ -12,7 +13,7 @@ init_db()
 
 @app.get("/api/health")
 def health():
-    return jsonify({"status": "ok", "service": "local-ai-memory", "version": "0.3.0"})
+    return jsonify({"status": "ok", "service": "local-ai-memory", "version": "0.4.0"})
 
 
 @app.post("/api/session")
@@ -76,6 +77,25 @@ def get_memories():
     except ValueError:
         limit = 20
     return jsonify({"memories": list_memories(memory_type, limit)})
+
+
+@app.post("/api/session/<session_id>/rollup")
+def rollup_memory(session_id: str):
+    data = request.get_json(silent=True) or {}
+    def integer(name: str, default: int, lower: int, upper: int) -> int:
+        try:
+            value = int(data.get(name, default))
+        except (TypeError, ValueError):
+            value = default
+        return max(lower, min(value, upper))
+
+    policy = MemoryPolicy(
+        short_window=integer("short_window", 8, 1, 50),
+        medium_trigger_messages=integer("medium_trigger_messages", 20, 5, 500),
+        medium_summary_window=integer("medium_summary_window", 20, 5, 100),
+        min_long_importance=max(0.0, min(float(data.get("min_long_importance", 0.75)), 1.0)),
+    )
+    return jsonify(rollup_session(session_id, policy))
 
 
 @app.post("/api/context/build")
