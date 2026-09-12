@@ -11,7 +11,11 @@
   function normalize(result) {
     if (!result || typeof result !== 'object') return null;
     return {
+      platform: result.platform || '',
+      url: result.url || location.href,
+      query: result.query || '',
       decision: result.decision || result.route?.decision || 'cloud',
+      reason: result.reason || result.route?.reason || '',
       optimized_context: result.optimized_context || '',
       optimized_messages: Array.isArray(result.optimized_messages) ? result.optimized_messages : [],
       input_tokens: Number(result.optimized_input_tokens || result.cost?.optimized_input_tokens || 0),
