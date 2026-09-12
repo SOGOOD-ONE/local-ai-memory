@@ -48,7 +48,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       output_token_budget: Number(message.outputTokenBudget || 0),
       applied: Boolean(message.applied),
     });
-    api("/api/stats", {
+    api("/api/stats/record", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body,
