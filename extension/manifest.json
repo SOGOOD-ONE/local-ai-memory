@@ -54,8 +54,8 @@
     },
     {
       "matches": [
-        "https://*.trea.ai/*",
-        "https://trea.ai/*"
+        "https://*.trae.ai/*",
+        "https://trae.ai/*"
       ],
       "js": [
         "content/adapter.js",
@@ -86,9 +86,11 @@
     },
     {
       "matches": [
+        "https://www.qianwen.com/*",
+        "https://qianwen.com/*",
+        "https://*.qianwen.com/*",
         "https://tongyi.aliyun.com/*",
         "https://*.tongyi.aliyun.com/*",
-        "https://qianwen.aliyun.com/*",
         "https://*.qianwenai.com/*"
       ],
       "js": [

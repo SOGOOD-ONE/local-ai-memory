@@ -31,6 +31,26 @@
     return clean('value' in node ? node.value : node.innerText);
   }
 
+  /**
+   * Rich-text editors (Lexical on Kimi, ProseMirror on Doubao) own their
+   * document model and revert direct textContent writes. Inserting through the
+   * editor's native input path keeps the text in sync with that model.
+   */
+  function insertViaExecCommand(node, text) {
+    if (typeof document.execCommand !== 'function') return false;
+    const selection = window.getSelection?.();
+    if (!selection) return false;
+    try {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      return document.execCommand('insertText', false, text) === true;
+    } catch (_error) {
+      return false;
+    }
+  }
+
   function writeEditable(node, text) {
     if (!node || !text) return false;
     if ('value' in node) {
@@ -42,6 +62,7 @@
       return true;
     }
     node.focus();
+    if (insertViaExecCommand(node, text)) return true;
     node.textContent = text;
     node.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
     return true;
