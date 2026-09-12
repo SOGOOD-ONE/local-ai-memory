@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from flask import Flask, jsonify, request
 
+from api_optimizer import build_optimization_preview
 from context_engine import ContextPolicy, build_context as build_context_engine
+from cost_engine import ModelPricing
 from database import add_memory, add_message, init_db, list_memories, list_messages, upsert_session
 from memory_lifecycle import MemoryPolicy, rollup_session
-from token_engine import estimate_tokens
+from token_engine import estimate_messages, estimate_tokens
 
 app = Flask(__name__)
 init_db()
@@ -13,7 +15,7 @@ init_db()
 
 @app.get("/api/health")
 def health():
-    return jsonify({"status": "ok", "service": "local-ai-memory", "version": "0.4.0"})
+    return jsonify({"status": "ok", "service": "local-ai-memory", "version": "0.5.0"})
 
 
 @app.post("/api/session")
@@ -82,6 +84,7 @@ def get_memories():
 @app.post("/api/session/<session_id>/rollup")
 def rollup_memory(session_id: str):
     data = request.get_json(silent=True) or {}
+
     def integer(name: str, default: int, lower: int, upper: int) -> int:
         try:
             value = int(data.get(name, default))
@@ -89,11 +92,16 @@ def rollup_memory(session_id: str):
             value = default
         return max(lower, min(value, upper))
 
+    try:
+        min_importance = float(data.get("min_long_importance", 0.75))
+    except (TypeError, ValueError):
+        min_importance = 0.75
+
     policy = MemoryPolicy(
         short_window=integer("short_window", 8, 1, 50),
         medium_trigger_messages=integer("medium_trigger_messages", 20, 5, 500),
         medium_summary_window=integer("medium_summary_window", 20, 5, 100),
-        min_long_importance=max(0.0, min(float(data.get("min_long_importance", 0.75)), 1.0)),
+        min_long_importance=max(0.0, min(min_importance, 1.0)),
     )
     return jsonify(rollup_session(session_id, policy))
 
@@ -125,6 +133,35 @@ def build_context():
         min_retrieval_score=max(0.0, min(min_score, 1.0)),
     )
     return jsonify(build_context_engine(session_id, query, policy))
+
+
+@app.post("/api/optimize/preview")
+def optimize_preview():
+    data = request.get_json(silent=True) or {}
+    query = str(data.get("query", "")).strip()
+    if not query:
+        return jsonify({"error": "query is required"}), 400
+
+    try:
+        original_input = int(data.get("original_input_tokens", estimate_tokens(str(data.get("original_context", "")))))
+        optimized_input = int(data.get("optimized_input_tokens", estimate_tokens(str(data.get("optimized_context", "")))))
+        input_price = float(data.get("input_per_million", 0.0))
+        output_price = float(data.get("output_per_million", 0.0))
+        expected_output = data.get("expected_output_tokens")
+        expected_output = int(expected_output) if expected_output is not None else None
+    except (TypeError, ValueError):
+        return jsonify({"error": "invalid numeric optimization parameters"}), 400
+
+    result = build_optimization_preview(
+        query,
+        max(0, original_input),
+        max(0, optimized_input),
+        cache_hit=bool(data.get("cache_hit", False)),
+        local_capable=bool(data.get("local_capable", False)),
+        expected_output_tokens=expected_output,
+        pricing=ModelPricing(input_price, output_price),
+    )
+    return jsonify(result)
 
 
 if __name__ == "__main__":
