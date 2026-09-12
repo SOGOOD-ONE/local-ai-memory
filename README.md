@@ -2,12 +2,14 @@
 
 面向网页大模型的**本地成本优化中间层**。
 
-核心目标不是改变 ChatGPT、豆包、Trea 等模型本身，而是在浏览器与网页 LLM 之间增加一个运行在用户本机的优化层：
+核心目标不是改变 ChatGPT、豆包、Trea 等模型本身，而是在浏览器与网页 LLM 之间增加一个运行在用户本机的优化层。
 
 ```text
 用户问题
    ↓
 Chrome / Edge Extension
+   ↓
+Platform Adapter
    ↓
 Local AI Cost Optimizer
    ├── Memory Engine        本地记忆
@@ -31,12 +33,29 @@ ChatGPT / 豆包 / Trea / 其他网页 LLM
 
 ## 平台
 
-浏览器层优先支持：
+浏览器层优先支持 Microsoft Edge 与 Google Chrome。
 
-- Microsoft Edge
-- Google Chrome
+扩展采用 Manifest V3，并通过 Platform Adapter 适配不同网页。
 
-扩展采用 Manifest V3，尽量保持 Chrome / Edge 共用一套代码，通过 Platform Adapter 适配不同网页。
+当前已经加入共享 `extension/content/adapter.js`，以及 ChatGPT/Trea 的 v2 页面适配器。由于当前环境对更新根 `extension/manifest.json` 有安全限制，同时保留 `extension/manifest.v2.json` 作为对应的新清单，便于后续切换。
+
+## 页面上下文采集原则
+
+适配器只负责网页侧的 DOM 读取、消息角色归一化和去抖上报，不把平台特定逻辑写入核心优化器。当前流程为：
+
+```text
+网页 DOM
+   ↓
+Platform Adapter
+   ↓
+统一 message[]
+   ↓
+Local Optimizer
+   ↓
+原始 Token / 优化 Token / Cache / Route / Output Budget
+```
+
+这样后续增加 Claude、Gemini 等平台时，不需要改动 Memory、Retrieval、Cache、Cost 等核心模块。
 
 ## 记忆架构
 
@@ -89,12 +108,13 @@ local-ai-memory/
 │   └── router.py
 ├── extension/
 │   ├── manifest.json
+│   ├── manifest.v2.json
 │   ├── background.js
 │   ├── content/
-│   ├── adapters/
-│   │   ├── chatgpt.js
-│   │   ├── doubao.js
-│   │   └── trea.js
+│   │   ├── adapter.js
+│   │   ├── chatgpt_adapter_v2.js
+│   │   ├── trea.js
+│   │   └── trea_adapter_v2.js
 │   └── popup/
 ├── tests/
 ├── docs/
@@ -118,23 +138,12 @@ local-ai-memory/
 - Embedding retrieval
 - Semantic cache
 - Local router
-- Output token budget
+- Browser page context bridge
+- Per-platform adapter
 
-### Phase 3 — Browser Integration
-- Edge extension
-- Chrome extension
-- ChatGPT adapter
-- 豆包 adapter
-- Trea adapter
-
-### Phase 4 — Local AI
-- Ollama integration
-- Local summarization
-- Memory consolidation
-
-### Phase 5 — Evaluation
-- Token reduction rate
-- Cost reduction
-- Answer consistency
-- Cache hit rate
-- Maximum effective conversation length
+### Phase 3 — Request Optimization
+- 真实发送前上下文裁剪
+- Output token budget 注入
+- 更精确的模型 Tokenizer
+- 可选的浏览器请求层拦截
+- 可量化的云端成本下降报告
