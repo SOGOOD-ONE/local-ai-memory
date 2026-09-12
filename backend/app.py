@@ -6,7 +6,16 @@ from api_optimizer import build_optimization_preview
 from cache_store import find_cache, init_cache_table, put_cache
 from context_engine import ContextPolicy, build_context as build_context_engine
 from cost_engine import ModelPricing
-from database import add_memory, add_message, init_db, list_memories, list_messages, upsert_session
+from database import (
+    add_memory,
+    add_message,
+    init_db,
+    list_memories,
+    list_messages,
+    optimization_stats,
+    record_optimization_stat,
+    upsert_session,
+)
 from memory_lifecycle import MemoryPolicy, rollup_session
 from token_engine import estimate_tokens
 
@@ -17,7 +26,7 @@ init_cache_table()
 
 @app.get("/api/health")
 def health():
-    return jsonify({"status": "ok", "service": "local-ai-memory", "version": "0.6.0"})
+    return jsonify({"status": "ok", "service": "local-ai-memory", "version": "0.7.0"})
 
 
 @app.post("/api/session")
@@ -212,6 +221,29 @@ def optimize_preview():
         pricing=ModelPricing(input_price, output_price),
     )
     return jsonify(result)
+
+
+@app.post("/api/stats/record")
+def record_stats():
+    data = request.get_json(silent=True) or {}
+    try:
+        stat_id = record_optimization_stat(
+            platform=str(data.get("platform", "unknown")),
+            decision=str(data.get("decision", "cloud")),
+            original_input_tokens=int(data.get("original_input_tokens", 0)),
+            optimized_input_tokens=int(data.get("optimized_input_tokens", 0)),
+            output_token_budget=int(data.get("output_token_budget", 0)),
+            applied=bool(data.get("applied", False)),
+        )
+    except (TypeError, ValueError):
+        return jsonify({"error": "invalid statistics parameters"}), 400
+    return jsonify({"status": "ok", "stat_id": stat_id})
+
+
+@app.get("/api/stats")
+def get_stats():
+    platform = request.args.get("platform") or None
+    return jsonify(optimization_stats(platform=platform))
 
 
 if __name__ == "__main__":
