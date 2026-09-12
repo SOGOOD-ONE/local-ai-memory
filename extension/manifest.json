@@ -1,1 +1,33 @@
-{"manifest_version":3,"name":"Local AI Cost Optimizer","version":"0.8.1","description":"本地 LLM 成本优化中间层","permissions":["storage","activeTab","tabs"],"host_permissions":["http://127.0.0.1:8765/*","http://localhost:8765/*"],"background":{"service_worker":"background.js"},"action":{"default_title":"Local AI Cost Optimizer","default_popup":"popup/index.html"},"content_scripts":[{"matches":["https://chatgpt.com/*","https://chat.openai.com/*"],"js":["content/adapter.js","content/chatgpt_adapter_v2.js"],"run_at":"document_idle"},{"matches":["https://www.doubao.com/*","https://doubao.com/*"],"js":["content/adapter.js","content/doubao_adapter_v2.js"],"run_at":"document_idle"},{"matches":["https://*.trea.ai/*","https://trea.ai/*"],"js":["content/adapter.js","content/trea_adapter_v2.js"],"run_at":"document_idle"}]}
+{
+  "manifest_version": 3,
+  "name": "Local AI Cost Optimizer",
+  "version": "0.8.2",
+  "description": "本地 LLM 成本优化中间层",
+  "permissions": ["storage", "activeTab", "tabs"],
+  "host_permissions": [
+    "http://127.0.0.1:8765/*",
+    "http://localhost:8765/*"
+  ],
+  "background": {"service_worker": "background.js"},
+  "action": {
+    "default_title": "Local AI Cost Optimizer",
+    "default_popup": "popup/index.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
+      "js": ["content/adapter.js", "content/chatgpt_adapter_v2.js", "content/send_guard.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.doubao.com/*", "https://doubao.com/*"],
+      "js": ["content/adapter.js", "content/doubao_adapter_v2.js", "content/send_guard.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://*.trea.ai/*", "https://trea.ai/*"],
+      "js": ["content/adapter.js", "content/trea_adapter_v2.js", "content/send_guard.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
