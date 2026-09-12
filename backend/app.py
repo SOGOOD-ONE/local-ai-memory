@@ -3,19 +3,21 @@ from __future__ import annotations
 from flask import Flask, jsonify, request
 
 from api_optimizer import build_optimization_preview
+from cache_store import find_cache, init_cache_table, put_cache
 from context_engine import ContextPolicy, build_context as build_context_engine
 from cost_engine import ModelPricing
 from database import add_memory, add_message, init_db, list_memories, list_messages, upsert_session
 from memory_lifecycle import MemoryPolicy, rollup_session
-from token_engine import estimate_messages, estimate_tokens
+from token_engine import estimate_tokens
 
 app = Flask(__name__)
 init_db()
+init_cache_table()
 
 
 @app.get("/api/health")
 def health():
-    return jsonify({"status": "ok", "service": "local-ai-memory", "version": "0.5.0"})
+    return jsonify({"status": "ok", "service": "local-ai-memory", "version": "0.6.0"})
 
 
 @app.post("/api/session")
@@ -61,11 +63,15 @@ def create_memory():
     memory_type = str(data.get("memory_type", "long"))
     if not content or memory_type not in {"short", "medium", "long"}:
         return jsonify({"error": "content and valid memory_type are required"}), 400
+    try:
+        importance = float(data.get("importance", 0.5))
+    except (TypeError, ValueError):
+        importance = 0.5
     memory_id = add_memory(
         content,
         memory_type=memory_type,
         session_id=data.get("session_id"),
-        importance=float(data.get("importance", 0.5)),
+        importance=importance,
         metadata=data.get("metadata") if isinstance(data.get("metadata"), dict) else {},
     )
     return jsonify({"status": "ok", "memory_id": memory_id})
@@ -133,6 +139,50 @@ def build_context():
         min_retrieval_score=max(0.0, min(min_score, 1.0)),
     )
     return jsonify(build_context_engine(session_id, query, policy))
+
+
+@app.post("/api/cache/lookup")
+def cache_lookup():
+    data = request.get_json(silent=True) or {}
+    query = str(data.get("query", "")).strip()
+    if not query:
+        return jsonify({"error": "query is required"}), 400
+    try:
+        threshold = float(data.get("threshold", 0.92))
+    except (TypeError, ValueError):
+        threshold = 0.92
+    result = find_cache(
+        query,
+        platform=str(data.get("platform", "unknown")),
+        model=data.get("model"),
+        session_scope=str(data.get("session_scope", "global")),
+        threshold=max(0.0, min(threshold, 1.0)),
+    )
+    return jsonify({"hit": result is not None, "entry": result})
+
+
+@app.post("/api/cache/store")
+def cache_store():
+    data = request.get_json(silent=True) or {}
+    query = str(data.get("query", "")).strip()
+    response = str(data.get("response", ""))
+    if not query or not response:
+        return jsonify({"error": "query and response are required"}), 400
+    try:
+        entry_id = put_cache(
+            query=query,
+            response=response,
+            platform=str(data.get("platform", "unknown")),
+            model=data.get("model"),
+            session_scope=str(data.get("session_scope", "global")),
+            context_fingerprint=str(data.get("context_fingerprint", "")),
+            input_tokens=int(data.get("input_tokens", 0)),
+            output_tokens=int(data.get("output_tokens", 0)),
+            ttl_seconds=int(data.get("ttl_seconds", 86400)),
+        )
+    except (TypeError, ValueError):
+        return jsonify({"error": "invalid cache parameters"}), 400
+    return jsonify({"status": "ok", "cache_id": entry_id})
 
 
 @app.post("/api/optimize/preview")
