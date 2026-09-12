@@ -1,6 +1,5 @@
 (() => {
   const API_BASE = 'http://127.0.0.1:8765';
-  const RECENT_MESSAGE_LIMIT = 7;
   let lastFingerprint = '';
   let timer = null;
 
@@ -26,15 +25,24 @@
       .filter((item) => item.content);
   }
 
-  function compressContext(messages) {
-    const systemMessages = messages.filter((item) => item.role === 'system');
-    const nonSystemMessages = messages.filter((item) => item.role !== 'system');
-    const recentMessages = nonSystemMessages.slice(-RECENT_MESSAGE_LIMIT);
-
-    // Preserve all explicit system instructions, then keep the most recent
-    // conversational turns. The latest user query is therefore retained while
-    // older turns can be removed to reduce prompt size.
-    return [...systemMessages, ...recentMessages];
+  async function recordApplied(result) {
+    if (!result) return;
+    try {
+      await fetch(`${API_BASE}/api/stats/record`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          platform: result.platform || 'unknown',
+          decision: result.decision || 'cloud',
+          original_input_tokens: result.original_input_tokens || 0,
+          optimized_input_tokens: result.optimized_input_tokens || 0,
+          output_token_budget: result.output_token_budget || 0,
+          applied: true,
+        }),
+      });
+    } catch (error) {
+      console.debug('[Local AI Cost Optimizer] statistics unavailable', error);
+    }
   }
 
   async function observe({ platform, messages }) {
@@ -42,7 +50,9 @@
     const query = [...normalized].reverse().find((item) => item.role === 'user')?.content || '';
     if (!query) return null;
 
-    const optimized = compressContext(normalized);
+    const systemMessages = normalized.filter((item) => item.role === 'system');
+    const recentMessages = normalized.filter((item) => item.role !== 'system').slice(-7);
+    const optimized = [...systemMessages, ...recentMessages];
     const serialized = JSON.stringify({ platform, query, optimized });
     const currentFingerprint = fingerprint(`${location.href}|${serialized}`);
     if (currentFingerprint === lastFingerprint) return null;
@@ -67,6 +77,7 @@
       url: location.href,
       query,
       decision: preview.route?.decision || 'cloud',
+      reason: preview.route?.reason || '',
       cache_hit: Boolean(preview.route?.cache_hit),
       original_input_tokens: preview.cost?.original_input_tokens || 0,
       optimized_input_tokens: preview.cost?.optimized_input_tokens || 0,
@@ -88,11 +99,9 @@
     }, delay);
   }
 
-  window.LocalAIMemoryAdapter = {
-    cleanText,
-    normalizeMessages,
-    compressContext,
-    observe,
-    debounceObserve,
-  };
+  window.addEventListener('local-ai-memory:optimization-applied', (event) => {
+    recordApplied(event.detail);
+  });
+
+  window.LocalAIMemoryAdapter = { cleanText, normalizeMessages, observe, debounceObserve };
 })();
