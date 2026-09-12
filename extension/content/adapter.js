@@ -1,5 +1,6 @@
 (() => {
   const API_BASE = 'http://127.0.0.1:8765';
+  const RECENT_MESSAGE_LIMIT = 7;
   let lastFingerprint = '';
   let timer = null;
 
@@ -25,12 +26,23 @@
       .filter((item) => item.content);
   }
 
+  function compressContext(messages) {
+    const systemMessages = messages.filter((item) => item.role === 'system');
+    const nonSystemMessages = messages.filter((item) => item.role !== 'system');
+    const recentMessages = nonSystemMessages.slice(-RECENT_MESSAGE_LIMIT);
+
+    // Preserve all explicit system instructions, then keep the most recent
+    // conversational turns. The latest user query is therefore retained while
+    // older turns can be removed to reduce prompt size.
+    return [...systemMessages, ...recentMessages];
+  }
+
   async function observe({ platform, messages }) {
     const normalized = normalizeMessages(messages);
     const query = [...normalized].reverse().find((item) => item.role === 'user')?.content || '';
     if (!query) return null;
 
-    const optimized = normalized.slice(-8);
+    const optimized = compressContext(normalized);
     const serialized = JSON.stringify({ platform, query, optimized });
     const currentFingerprint = fingerprint(`${location.href}|${serialized}`);
     if (currentFingerprint === lastFingerprint) return null;
@@ -76,5 +88,11 @@
     }, delay);
   }
 
-  window.LocalAIMemoryAdapter = { cleanText, normalizeMessages, observe, debounceObserve };
+  window.LocalAIMemoryAdapter = {
+    cleanText,
+    normalizeMessages,
+    compressContext,
+    observe,
+    debounceObserve,
+  };
 })();
