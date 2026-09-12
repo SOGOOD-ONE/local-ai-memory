@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Local AI Cost Optimizer",
-  "version": "0.8.3",
+  "version": "0.8.4",
   "description": "本地 LLM 成本优化中间层",
   "permissions": [
     "storage",
