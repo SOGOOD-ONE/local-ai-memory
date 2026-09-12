@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from flask import Flask, jsonify, request
 
+from context_engine import ContextPolicy, build_context as build_context_engine
 from database import add_memory, add_message, init_db, list_memories, list_messages, upsert_session
-from token_engine import compression_stats, estimate_messages, estimate_tokens
+from token_engine import estimate_tokens
 
 app = Flask(__name__)
 init_db()
@@ -11,7 +12,7 @@ init_db()
 
 @app.get("/api/health")
 def health():
-    return jsonify({"status": "ok", "service": "local-ai-memory", "version": "0.2.0"})
+    return jsonify({"status": "ok", "service": "local-ai-memory", "version": "0.3.0"})
 
 
 @app.post("/api/session")
@@ -82,34 +83,28 @@ def build_context():
     data = request.get_json(silent=True) or {}
     session_id = str(data.get("session_id", "")).strip()
     query = str(data.get("query", "")).strip()
-    recent_limit = int(data.get("recent_limit", 8))
-    memory_limit = int(data.get("memory_limit", 5))
     if not session_id or not query:
         return jsonify({"error": "session_id and query are required"}), 400
 
-    recent_messages = list_messages(session_id, max(1, min(recent_limit, 50)))
-    memories = list_memories(limit=max(1, min(memory_limit, 20)))
+    def integer(name: str, default: int, lower: int, upper: int) -> int:
+        try:
+            value = int(data.get(name, default))
+        except (TypeError, ValueError):
+            value = default
+        return max(lower, min(value, upper))
 
-    original_messages = [{"role": item["role"], "content": item["content"]} for item in recent_messages]
-    memory_text = "\n".join(f"- {item['content']}" for item in memories)
-    compressed_messages = []
-    if memory_text:
-        compressed_messages.append({
-            "role": "system",
-            "content": "Relevant local memories:\n" + memory_text,
-        })
-    compressed_messages.extend(original_messages)
-    compressed_messages.append({"role": "user", "content": query})
+    try:
+        min_score = float(data.get("min_retrieval_score", 0.0))
+    except (TypeError, ValueError):
+        min_score = 0.0
 
-    original_tokens = estimate_messages(original_messages) + estimate_tokens(query)
-    compressed_tokens = estimate_messages(compressed_messages)
-    return jsonify({
-        "session_id": session_id,
-        "query": query,
-        "messages": compressed_messages,
-        "stats": compression_stats(original_tokens, compressed_tokens),
-        "memory_count": len(memories),
-    })
+    policy = ContextPolicy(
+        recent_messages=integer("recent_limit", 8, 1, 50),
+        recalled_memories=integer("memory_limit", 5, 1, 50),
+        max_context_tokens=integer("max_context_tokens", 6000, 256, 32000),
+        min_retrieval_score=max(0.0, min(min_score, 1.0)),
+    )
+    return jsonify(build_context_engine(session_id, query, policy))
 
 
 if __name__ == "__main__":
