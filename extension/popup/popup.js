@@ -7,17 +7,11 @@ const savedCost = document.getElementById("savedCost");
 const decision = document.getElementById("decision");
 const reason = document.getElementById("reason");
 
-const API_BASE = typeof window !== "undefined" && window.location.protocol.startsWith("http")
-  ? ""
-  : "http://127.0.0.1:8765";
-
 function detectPlatform(url) {
-  try {
-    const host = new URL(url).hostname;
-    if (host.includes("chatgpt") || host.includes("openai")) return "ChatGPT";
-    if (host.includes("doubao")) return "豆包";
-    if (host.includes("trae") || host.includes("trea")) return "Trea";
-  } catch {}
+  const host = new URL(url).hostname;
+  if (host.includes("chatgpt") || host.includes("openai")) return "ChatGPT";
+  if (host.includes("doubao")) return "豆包";
+  if (host.includes("trae")) return "Trea";
   return "当前标签页";
 }
 
@@ -27,7 +21,7 @@ function formatNumber(value) {
 
 async function loadStats() {
   try {
-    const response = await fetch(`${API_BASE}/api/stats`);
+    const response = await fetch("http://127.0.0.1:8765/api/stats");
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     savedInput.textContent = formatNumber(data.saved_input_tokens);
@@ -47,7 +41,7 @@ async function checkServer() {
   status.textContent = "检查中";
   status.className = "badge";
   try {
-    const response = await fetch(`${API_BASE}/api/health`);
+    const response = await fetch("http://127.0.0.1:8765/api/health");
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     status.textContent = data.status === "ok" ? "本地服务在线" : "服务异常";
@@ -60,18 +54,11 @@ async function checkServer() {
 }
 
 async function loadTab() {
-  if (typeof chrome !== "undefined" && chrome.tabs?.query) {
-    try {
-      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-      const tab = tabs[0];
-      platform.textContent = tab?.url ? detectPlatform(tab.url) : "未知";
-      return;
-    } catch {}
-  }
-  platform.textContent = "ChatGPT (模拟)";
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tab = tabs[0];
+  platform.textContent = tab?.url ? detectPlatform(tab.url) : "未知";
 }
 
 check.addEventListener("click", checkServer);
 loadTab();
 checkServer();
-
