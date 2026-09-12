@@ -1,6 +1,11 @@
 const status = document.getElementById("serverBadge");
 const check = document.getElementById("check");
 const platform = document.getElementById("platform");
+const savedInput = document.getElementById("savedInput");
+const savedOutput = document.getElementById("savedOutput");
+const savedCost = document.getElementById("savedCost");
+const decision = document.getElementById("decision");
+const reason = document.getElementById("reason");
 
 function detectPlatform(url) {
   const host = new URL(url).hostname;
@@ -8,6 +13,28 @@ function detectPlatform(url) {
   if (host.includes("doubao")) return "豆包";
   if (host.includes("trae")) return "Trea";
   return "当前标签页";
+}
+
+function formatNumber(value) {
+  return Number(value || 0).toLocaleString("zh-CN");
+}
+
+async function loadStats() {
+  try {
+    const response = await fetch("http://127.0.0.1:8765/api/stats");
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    savedInput.textContent = formatNumber(data.saved_input_tokens);
+    savedOutput.textContent = formatNumber(data.output_token_budget);
+    savedCost.textContent = `${Number(data.input_saving_ratio || 0).toFixed(2)}%`;
+    if (data.requests) {
+      decision.textContent = `已处理 ${formatNumber(data.requests)} 次请求`;
+      reason.textContent = `实际应用 ${formatNumber(data.applied_requests)} 次，输入 token 节省 ${Number(data.input_saving_ratio || 0).toFixed(2)}%。`;
+    }
+  } catch {
+    decision.textContent = "等待统计数据";
+    reason.textContent = "本地服务在线后，这里会显示累计优化效果。";
+  }
 }
 
 async function checkServer() {
@@ -19,6 +46,7 @@ async function checkServer() {
     const data = await response.json();
     status.textContent = data.status === "ok" ? "本地服务在线" : "服务异常";
     status.classList.add(data.status === "ok" ? "online" : "offline");
+    if (data.status === "ok") await loadStats();
   } catch {
     status.textContent = "本地服务离线";
     status.classList.add("offline");
