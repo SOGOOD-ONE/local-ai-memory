@@ -18,11 +18,7 @@
   }
 
   function findEditable(root = document) {
-    const selectors = [
-      'textarea',
-      '[contenteditable="true"]',
-      '[role="textbox"]',
-    ];
+    const selectors = ['textarea', '[contenteditable="true"]', '[role="textbox"]'];
     for (const selector of selectors) {
       const node = root.querySelector(selector);
       if (node) return node;
@@ -47,11 +43,7 @@
     }
     node.focus();
     node.textContent = text;
-    node.dispatchEvent(new InputEvent('input', {
-      bubbles: true,
-      inputType: 'insertText',
-      data: text,
-    }));
+    node.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
     return true;
   }
 
@@ -64,38 +56,19 @@
   }
 
   function applyOptimization(result) {
-    if (!state.enabled || !result) return false;
-    if (result.decision === 'cache') return false;
-
+    if (!state.enabled || !result || result.decision === 'cache') return false;
     const query = clean(result.query);
     const prompt = buildPrompt(result);
     if (!query || !prompt) return false;
-
     const node = findEditable();
     if (!node) return false;
-
-    // Safety invariant: only rewrite the composer when the user has not changed it
-    // since the optimizer inspected the query.
     const current = readEditable(node);
     if (!current || current !== query) return false;
-
     const fp = fingerprint(`${query}\n${prompt}`);
     if (fp === state.lastAppliedFingerprint) return false;
-
     const applied = writeEditable(node, prompt);
     if (applied) state.lastAppliedFingerprint = fp;
     return applied;
-  }
-
-  function handleSendReady(event) {
-    const result = event?.detail;
-    if (!result || result.decision === 'cache') return;
-    const applied = applyOptimization(result);
-    if (applied) {
-      window.dispatchEvent(new CustomEvent('local-ai-memory:optimization-applied', {
-        detail: result,
-      }));
-    }
   }
 
   window.LocalAIMemorySendGuard = {
@@ -105,11 +78,4 @@
     findEditable,
     readEditable,
   };
-
-  window.addEventListener('local-ai-memory:send-ready', handleSendReady);
-  window.addEventListener('local-ai-memory:optimized', (event) => {
-    window.dispatchEvent(new CustomEvent('local-ai-memory:optimization-ready', {
-      detail: event.detail,
-    }));
-  });
 })();
