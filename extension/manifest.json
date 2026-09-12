@@ -3,7 +3,11 @@
   "name": "Local AI Cost Optimizer",
   "version": "0.8.3",
   "description": "本地 LLM 成本优化中间层",
-  "permissions": ["storage", "activeTab", "tabs"],
+  "permissions": [
+    "storage",
+    "activeTab",
+    "tabs"
+  ],
   "host_permissions": [
     "http://127.0.0.1:8765/*",
     "http://localhost:8765/*"
@@ -17,35 +21,50 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+      ],
       "js": [
         "content/adapter.js",
         "content/send_bridge.js",
         "content/send_guard.js",
         "content/chatgpt_adapter_v2.js",
-        "content/chatgpt_sender_v1.js"
+        "content/chatgpt_sender_v1.js",
+        "content/request_context.js",
+        "content/request_context_bridge.js"
       ],
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://www.doubao.com/*", "https://doubao.com/*"],
+      "matches": [
+        "https://www.doubao.com/*",
+        "https://doubao.com/*"
+      ],
       "js": [
         "content/adapter.js",
         "content/send_bridge.js",
         "content/send_guard.js",
         "content/doubao_adapter_v2.js",
-        "content/doubao_sender_v1.js"
+        "content/doubao_sender_v1.js",
+        "content/request_context.js",
+        "content/request_context_bridge.js"
       ],
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://*.trea.ai/*", "https://trea.ai/*"],
+      "matches": [
+        "https://*.trea.ai/*",
+        "https://trea.ai/*"
+      ],
       "js": [
         "content/adapter.js",
         "content/send_bridge.js",
         "content/send_guard.js",
         "content/trea_adapter_v2.js",
-        "content/trea_sender_v1.js"
+        "content/trea_sender_v1.js",
+        "content/request_context.js",
+        "content/request_context_bridge.js"
       ],
       "run_at": "document_idle"
     }
