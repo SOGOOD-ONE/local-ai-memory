@@ -20,7 +20,10 @@
     const aria = (node.getAttribute('aria-label') || '').toLowerCase();
     if (/用户|user|我/.test(aria)) return 'user';
     if (/助手|assistant|豆包|模型|ai/.test(aria)) return 'assistant';
+    // 豆包按布局区分角色：用户消息右对齐（justify-end），助手消息为网格布局
     const cls = (node.className || '').toString().toLowerCase();
+    if (cls.includes('justify-end')) return 'user';
+    if (cls.includes('grid-cols-')) return 'assistant';
     if (/(user|human|mine)/.test(cls)) return 'user';
     if (/(assistant|ai|bot|model)/.test(cls)) return 'assistant';
     return '';
@@ -32,6 +35,8 @@
 
   function extractVisibleConversation() {
     const selectors = [
+      // 豆包真实会话的消息容器锚点（每轮对话一个），优先使用
+      '[data-message-id]',
       'main [data-message-role]',
       'main [data-message-author-role]',
       'main [data-role]',

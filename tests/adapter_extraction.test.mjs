@@ -95,16 +95,27 @@ const FIXTURES = {
     expectedRoles: ['user', 'assistant'],
   },
 
+  // Mirrors the real Doubao conversation DOM verified live: no role-bearing
+  // attributes at all, messages anchored by [data-message-id], and the role
+  // derived from layout (author messages right-aligned, assistant in a grid).
   doubao: {
     file: 'doubao_adapter_v2.js',
     url: 'https://www.doubao.com/chat/456',
     html: `
       <main>
-        <div class="message-list-wrapper">
-          <div class="message-item" data-message-role="user"><div>推荐几本书</div></div>
-          <div class="message-item" data-message-role="assistant"><div>推荐这几本经典读物。</div></div>
+        <div class="message-list-zLoNs1 opacity-100">
+          <div data-message-id="55210028592642818" class="flex-row flex w-full justify-end">
+            <div class="flex flex-col flex-grow max-w-full min-w-0">
+              <div class="content-KTJ1Rj rounded-s-radius-s">推荐几本书</div>
+            </div>
+          </div>
+          <div data-message-id="55210028592650498" class="relative grid w-full grid-cols-[minmax(0,1fr)_auto]">
+            <div class="flex flex-col flex-grow max-w-full min-w-0">
+              <div class="content-KTJ1Rj rounded-s-radius-s">推荐这几本经典读物。</div>
+            </div>
+          </div>
         </div>
-        <div class="input-area"><div contenteditable="true" role="textbox"></div></div>
+        <div class="input-area"><div class="tiptap ProseMirror" contenteditable="true" role="textbox"></div></div>
       </main>`,
     expectedPlatform: 'doubao',
     expectedQuery: '推荐几本书',
