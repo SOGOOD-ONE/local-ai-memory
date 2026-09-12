@@ -1,6 +1,7 @@
 (() => {
   let lastFingerprint = '';
   let timer = null;
+  let extensionContextInvalidated = false;
 
   function fingerprint(value) {
     let hash = 2166136261;
@@ -24,28 +25,70 @@
       .filter((item) => item.content);
   }
 
+  function isExtensionContextValid() {
+    try {
+      return Boolean(globalThis.chrome?.runtime?.id && chrome.runtime?.sendMessage);
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  function isContextInvalidatedError(error) {
+    return /extension context invalidated/i.test(String(error?.message || error || ''));
+  }
+
   function sendToServiceWorker(message) {
     return new Promise((resolve, reject) => {
-      if (!globalThis.chrome?.runtime?.sendMessage) {
-        reject(new Error('extension runtime messaging unavailable'));
+      if (extensionContextInvalidated) {
+        reject(new Error('Extension context invalidated'));
         return;
       }
-      chrome.runtime.sendMessage(message, (response) => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-          return;
+
+      if (!isExtensionContextValid()) {
+        extensionContextInvalidated = true;
+        window.clearTimeout(timer);
+        reject(new Error('Extension context invalidated'));
+        return;
+      }
+
+      try {
+        chrome.runtime.sendMessage(message, (response) => {
+          try {
+            if (chrome.runtime.lastError) {
+              const messageText = chrome.runtime.lastError.message || 'extension runtime messaging failed';
+              if (/extension context invalidated/i.test(messageText)) {
+                extensionContextInvalidated = true;
+                window.clearTimeout(timer);
+              }
+              reject(new Error(messageText));
+              return;
+            }
+
+            if (!response?.ok) {
+              reject(new Error(response?.error || 'local service request failed'));
+              return;
+            }
+            resolve(response.data);
+          } catch (error) {
+            if (isContextInvalidatedError(error)) {
+              extensionContextInvalidated = true;
+              window.clearTimeout(timer);
+            }
+            reject(error);
+          }
+        });
+      } catch (error) {
+        if (isContextInvalidatedError(error)) {
+          extensionContextInvalidated = true;
+          window.clearTimeout(timer);
         }
-        if (!response?.ok) {
-          reject(new Error(response?.error || 'local service request failed'));
-          return;
-        }
-        resolve(response.data);
-      });
+        reject(error);
+      }
     });
   }
 
   async function recordApplied(result) {
-    if (!result) return;
+    if (!result || extensionContextInvalidated) return;
     try {
       await sendToServiceWorker({
         type: 'recordStats',
@@ -57,11 +100,15 @@
         applied: true,
       });
     } catch (error) {
-      console.debug('[Local AI Cost Optimizer] statistics unavailable', error);
+      if (!isContextInvalidatedError(error)) {
+        console.debug('[Local AI Cost Optimizer] statistics unavailable', error);
+      }
     }
   }
 
   async function observe({ platform, messages }) {
+    if (extensionContextInvalidated) return null;
+
     const normalized = normalizeMessages(messages);
     const query = [...normalized].reverse().find((item) => item.role === 'user')?.content || '';
     if (!query) return null;
@@ -103,9 +150,16 @@
   }
 
   function debounceObserve(payload, delay = 800) {
+    if (extensionContextInvalidated) return;
     window.clearTimeout(timer);
     timer = window.setTimeout(() => {
       observe(payload).catch((error) => {
+        if (isContextInvalidatedError(error)) {
+          // The page is holding a stale content-script instance after the extension was reloaded.
+          // Do not report this as a local backend outage or spam the console.
+          extensionContextInvalidated = true;
+          return;
+        }
         console.debug('[Local AI Cost Optimizer] local service unavailable', error);
       });
     }, delay);
