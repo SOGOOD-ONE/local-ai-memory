@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 
 from api_optimizer import build_optimization_preview
 from cache_store import find_cache, init_cache_table, put_cache
@@ -20,6 +21,24 @@ from memory_lifecycle import MemoryPolicy, rollup_session
 from token_engine import estimate_tokens
 
 app = Flask(__name__)
+
+CORS(
+    app,
+    resources={
+        r"/api/*": {
+            "origins": [
+                "https://chatgpt.com",
+                "https://chat.openai.com",
+                "https://www.doubao.com",
+                "https://doubao.com",
+                r"^https://([a-zA-Z0-9-]+\.)*trea\.ai$",
+            ],
+            "methods": ["GET", "POST", "OPTIONS"],
+            "allow_headers": ["Content-Type"],
+        }
+    },
+)
+
 init_db()
 init_cache_table()
 
